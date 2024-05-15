@@ -1,9 +1,11 @@
 import cv2
+import numpy as np
 import os
+import time
 import streamlit as st
 
 # Tải tệp Haar cascade cho khuôn mặt
-face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+face_cascade = cv2.CascadeClassifier('haar_cascade_files/haarcascade_frontalface_default.xml')
 
 class FaceDetectionApp:
     def __init__(self):
@@ -11,9 +13,12 @@ class FaceDetectionApp:
         self.output_dir = 'detected_faces'
         self.snapshot_dir = 'snapshots'
         self.video_output_dir = 'recorded_videos'
-        os.makedirs(self.output_dir, exist_ok=True)
-        os.makedirs(self.snapshot_dir, exist_ok=True)
-        os.makedirs(self.video_output_dir, exist_ok=True)
+        if not os.path.exists(self.output_dir):
+            os.makedirs(self.output_dir)
+        if not os.path.exists(self.snapshot_dir):
+            os.makedirs(self.snapshot_dir)
+        if not os.path.exists(self.video_output_dir):
+            os.makedirs(self.video_output_dir)
 
         # Khởi tạo các biến
         self.current_camera = 0
@@ -21,99 +26,78 @@ class FaceDetectionApp:
         self.snapshot_counter = 0
         self.recording = False
         self.video_writer = None
+        self.cap = None  # Thêm biến cap để quản lý video capture
         self.zoom_factor = 1.0
         self.zoom_step = 0.1
 
     def start_video_capture(self):
+        # Kiểm tra quyền truy cập vào camera
+        if not self.check_camera_access():
+            st.error('Ứng dụng không có quyền truy cập vào camera.')
+            return
+
+        # Tạo cửa sổ hiển thị video
+        cv2.namedWindow('Face Detection Stream', cv2.WINDOW_NORMAL)
+
         # Stream dữ liệu video từ camera
         st.header("Video Stream")
-        cap = cv2.VideoCapture(self.current_camera)
-        while cap.isOpened():
-            ret, frame = cap.read()
+        self.cap = cv2.VideoCapture(self.current_camera)
+        while True:
+            ret, frame = self.cap.read()
             if not ret:
                 st.error('Không thể nhận dữ liệu từ camera.')
                 break
 
             # Điều chỉnh mức phóng đại của camera
-            frame = self._zoom_frame(frame)
+            height, width = frame.shape[:2]
+            center_x, center_y = width // 2, height // 2
+            new_width, new_height = int(width / self.zoom_factor), int(height / self.zoom_factor)
+            x1, y1 = max(0, center_x - new_width // 2), max(0, center_y - new_height // 2)
+            x2, y2 = min(width, center_x + new_width // 2), min(height, center_y + new_height // 2)
+            frame = frame[y1:y2, x1:x2]
+            frame = cv2.resize(frame, (width, height))
 
-            # Phát hiện khuôn mặt và lưu vào thư mục output_dir
-            frame, num_faces = self._detect_faces(frame)
+            # Chuyển đổi sang ảnh xám
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-            # Hiển thị frame trong Streamlit
-            st.image(frame, channels="BGR", use_column_width=True)
+            # Chạy bộ phát hiện khuôn mặt trên ảnh xám
+            face_rects = face_cascade.detectMultiScale(gray, 1.3, 5)
 
-            # Ghi video nếu đang ghi và lưu vào thư mục video_output_dir
-            self._record_video(frame)
+            # Vẽ hình chữ nhật xung quanh các khuôn mặt và lưu khuôn mặt vào đĩa
+            for (x, y, w, h) in face_rects:
+                cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 3)
+                
+                # Trích xuất khuôn mặt
+                face = frame[y:y+h, x:x+w]
+
+                # Lưu khuôn mặt vào đĩa
+                face_filename = os.path.join(self.output_dir, f'face_{self.face_counter}.png')
+                cv2.imwrite(face_filename, face)
+                self.face_counter += 1
+
+            # Hiển thị số lượng khuôn mặt được phát hiện
+            st.text(f'So luong khuon mat phat hien: {len(face_rects)}')
+
+            # Hiển thị frame trong cửa sổ
+            cv2.imshow('Face Detection Stream', frame)
+
+            # Ghi video nếu đang ghi
+            if self.recording:
+                if self.video_writer is None:
+                    fourcc = cv2.VideoWriter_fourcc(*'XVID')
+                    video_filename = os.path.join(self.video_output_dir, f'video_{self.snapshot_counter}.avi')
+                    self.video_writer = cv2.VideoWriter(video_filename, fourcc, 20.0, (frame.shape[1], frame.shape[0]))
+                self.video_writer.write(frame)
 
             # Kiểm tra nếu cửa sổ bị đóng
-            if cv2.getWindowProperty('Trinh phat hien khuon mat', cv2.WND_PROP_VISIBLE) < 1:
-                self.stop_video_capture(cap)
+            if cv2.getWindowProperty('Face Detection Stream', cv2.WND_PROP_VISIBLE) < 1:
+                self.stop_video_capture()
                 break
 
-            # Đợi 30ms trước khi lặp lại
-            cv2.waitKey(30)
-
-        # Kết thúc video capture khi kết thúc vòng lặp
-        cap.release()
-        self._release_video_writer()
-
-    def _zoom_frame(self, frame):
-        # Điều chỉnh phóng đại của frame
-        height, width = frame.shape[:2]
-        center_x, center_y = width // 2, height // 2
-        new_width, new_height = int(width / self.zoom_factor), int(height / self.zoom_factor)
-        x1, y1 = max(0, center_x - new_width // 2), max(0, center_y - new_height // 2)
-        x2, y2 = min(width, center_x + new_width // 2), min(height, center_y + new_height // 2)
-        return cv2.resize(frame[y1:y2, x1:x2], (width, height))
-
-    def _detect_faces(self, frame):
-        # Chuyển đổi sang ảnh xám
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-        # Chạy bộ phát hiện khuôn mặt trên ảnh xám
-        face_rects = face_cascade.detectMultiScale(gray, 1.3, 5)
-
-        # Vẽ hình chữ nhật xung quanh các khuôn mặt
-        for (x, y, w, h) in face_rects:
-            cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 3)
-        
-            # Trích xuất và lưu khuôn mặt vào thư mục output_dir
-            face = frame[y:y+h, x:x+w]
-            face_filename = os.path.join(self.output_dir, f'face_{self.face_counter}.png')
-            cv2.imwrite(face_filename, face)
-            self.face_counter += 1
-
-        # Thêm số lượng khuôn mặt được phát hiện vào frame
-        num_faces = len(face_rects)
-        text = f'So luong khuon mat phat hien: {num_faces}'
-        cv2.putText(frame, text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
-
-        return frame, num_faces
-
-    def _record_video(self, frame):
-        # Ghi video nếu đang ghi và lưu vào thư mục video_output_dir
-        if self.recording:
-            if self.video_writer is None:
-                fourcc = cv2.VideoWriter_fourcc(*'XVID')
-                video_filename = os.path.join(self.video_output_dir, f'video_{self.snapshot_counter}.avi')
-                self.video_writer = cv2.VideoWriter(video_filename, fourcc, 20.0, (frame.shape[1], frame.shape[0]))
-            self.video_writer.write(frame)
-            self.snapshot_counter += 1
-
-    def _release_video_writer(self):
-        # Giải phóng video writer khi kết thúc
-        if self.video_writer is not None:
-            self.video_writer.release()
-        self.video_writer = None
-
-    def stop_video_capture(self, cap):
-        # Dừng video capture và giải phóng tài nguyên
-        cap.release()
-        cv2.destroyAllWindows()
-
+            time.sleep(0.03)  # Đợi 30ms trước
+            
     def toggle_recording(self):
-        # Bật/tắt ghi video
+        # Ghi video khi nút được nhấn
         self.recording = not self.recording
 
     def switch_camera(self):
@@ -127,6 +111,22 @@ class FaceDetectionApp:
     def zoom_out(self):
         # Thu nhỏ hình ảnh
         self.zoom_factor = max(self.zoom_factor - self.zoom_step, 1.0)
+
+    def stop_video_capture(self):
+        # Dừng video capture và giải phóng tài nguyên
+        if self.cap is not None:
+            self.cap.release()
+        if self.video_writer is not None:
+            self.video_writer.release()
+        cv2.destroyAllWindows()
+
+    def check_camera_access(self):
+        # Kiểm tra quyền truy cập vào camera
+        test_cap = cv2.VideoCapture(self.current_camera)
+        if not test_cap.isOpened():
+            return False
+        test_cap.release()
+        return True
 
 
 # Tạo đối tượng ứng dụng và chạy ứng dụng
