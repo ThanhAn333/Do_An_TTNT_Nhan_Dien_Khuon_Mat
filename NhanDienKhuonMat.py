@@ -33,7 +33,7 @@ class FaceDetectionApp:
     def start_video_capture(self):
         # Stream dữ liệu video từ camera
         st.header("Video Stream")
-        cap = cv2.VideoCapture(0)
+        cap = cv2.VideoCapture(self.current_camera)
         
         if not self.cap.isOpened():
             st.error('Không thể mở camera. Vui lòng kiểm tra quyền truy cập và kết nối của camera.')
