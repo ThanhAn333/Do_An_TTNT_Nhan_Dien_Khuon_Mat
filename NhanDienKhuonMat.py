@@ -31,17 +31,14 @@ class FaceDetectionApp:
         self.zoom_step = 0.1
 
     def start_video_capture(self):
-        # Kiểm tra quyền truy cập vào camera
-        if not self.check_camera_access():
-            st.error('Ứng dụng không có quyền truy cập vào camera.')
-            return
-
-        # Tạo cửa sổ hiển thị video
-        cv2.namedWindow('Face Detection Stream', cv2.WINDOW_NORMAL)
-
         # Stream dữ liệu video từ camera
         st.header("Video Stream")
         self.cap = cv2.VideoCapture(self.current_camera)
+        
+        if not self.cap.isOpened():
+            st.error('Không thể mở camera. Vui lòng kiểm tra quyền truy cập và kết nối của camera.')
+            return
+        
         while True:
             ret, frame = self.cap.read()
             if not ret:
@@ -78,8 +75,8 @@ class FaceDetectionApp:
             # Hiển thị số lượng khuôn mặt được phát hiện
             st.text(f'So luong khuon mat phat hien: {len(face_rects)}')
 
-            # Hiển thị frame trong cửa sổ
-            cv2.imshow('Face Detection Stream', frame)
+            # Hiển thị frame trong Streamlit
+            st.image(frame, channels="BGR", use_column_width=True)
 
             # Ghi video nếu đang ghi
             if self.recording:
@@ -90,7 +87,7 @@ class FaceDetectionApp:
                 self.video_writer.write(frame)
 
             # Kiểm tra nếu cửa sổ bị đóng
-            if cv2.getWindowProperty('Face Detection Stream', cv2.WND_PROP_VISIBLE) < 1:
+            if cv2.getWindowProperty('Trinh phat hien khuon mat', cv2.WND_PROP_VISIBLE) < 1:
                 self.stop_video_capture()
                 break
 
@@ -119,14 +116,6 @@ class FaceDetectionApp:
         if self.video_writer is not None:
             self.video_writer.release()
         cv2.destroyAllWindows()
-
-    def check_camera_access(self):
-        # Kiểm tra quyền truy cập vào camera
-        test_cap = cv2.VideoCapture(self.current_camera)
-        if not test_cap.isOpened():
-            return False
-        test_cap.release()
-        return True
 
 
 # Tạo đối tượng ứng dụng và chạy ứng dụng
