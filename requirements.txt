@@ -1,2 +1,3 @@
 numpy
 opencv-python-headless
+tk==0.1.0
