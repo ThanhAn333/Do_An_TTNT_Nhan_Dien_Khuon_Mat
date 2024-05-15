@@ -31,15 +31,18 @@ class FaceDetectionApp:
         self.zoom_step = 0.1
 
     def start_video_capture(self):
-        # Stream dữ liệu video từ camera
-        st.header("Video Stream")
-        cap = cv2.VideoCapture(self.current_camera)
-        
+        # Mở camera
+        self.cap = cv2.VideoCapture(self.current_camera)
+
+        # Kiểm tra xem camera có được mở thành công hay không
         if not self.cap.isOpened():
             st.error('Không thể mở camera. Vui lòng kiểm tra quyền truy cập và kết nối của camera.')
-        else:
-            st.success("Camera đã được mở thành công.")
+            return
+
+        st.success("Camera đã được mở thành công.")
         
+        # Stream dữ liệu video từ camera
+        st.header("Video Stream")
         while True:
             ret, frame = self.cap.read()
             if not ret:
