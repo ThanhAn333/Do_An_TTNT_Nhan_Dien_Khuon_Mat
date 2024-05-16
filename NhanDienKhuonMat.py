@@ -4,7 +4,13 @@ import time
 import streamlit as st
 
 # Tải tệp Haar cascade cho khuôn mặt
-face_cascade = cv2.CascadeClassifier('haar_cascade_files/haarcascade_frontalface_default.xml')
+cascade_path = 'haar_cascade_files/haarcascade_frontalface_default.xml'
+if not os.path.exists(cascade_path):
+    st.error(f"Không tìm thấy tệp cascade tại đường dẫn: {cascade_path}")
+else:
+    face_cascade = cv2.CascadeClassifier(cascade_path)
+    if face_cascade.empty():
+        st.error(f"Không thể tải tệp cascade từ: {cascade_path}")
 
 class FaceDetectionApp:
     def __init__(self):
@@ -37,6 +43,8 @@ class FaceDetectionApp:
 
         st.success("Camera đã được mở thành công.")
         
+        frame_placeholder = st.empty()
+
         while self.cap.isOpened():
             ret, frame = self.cap.read()
             if not ret:
@@ -71,10 +79,10 @@ class FaceDetectionApp:
                 self.face_counter += 1
 
             # Hiển thị số lượng khuôn mặt được phát hiện
-            st.text(f'Số lượng khuôn mặt phát hiện: {len(face_rects)}')
+            st.sidebar.text(f'Số lượng khuôn mặt phát hiện: {len(face_rects)}')
 
             # Hiển thị frame trong Streamlit
-            st.image(frame, channels="BGR", use_column_width=True)
+            frame_placeholder.image(frame, channels="BGR", use_column_width=True)
 
             # Ghi video nếu đang ghi
             if self.recording:
@@ -112,7 +120,6 @@ class FaceDetectionApp:
         if self.video_writer is not None:
             self.video_writer.release()
         cv2.destroyAllWindows()
-
 
 # Tạo đối tượng ứng dụng và chạy ứng dụng
 app = FaceDetectionApp()
