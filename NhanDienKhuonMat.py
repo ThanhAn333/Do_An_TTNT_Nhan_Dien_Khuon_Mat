@@ -30,6 +30,19 @@ class FaceDetectionApp:
         self.zoom_factor = 1.0
         self.zoom_step = 0.1
 
+    def list_cameras(self):
+        index = 0
+        arr = []
+        while True:
+            cap = cv2.VideoCapture(index)
+            if not cap.read()[0]:
+                break
+            else:
+                arr.append(index)
+            cap.release()
+            index += 1
+        return arr
+
     def start_video_capture(self):
         self.cap = cv2.VideoCapture(self.current_camera)
 
@@ -102,16 +115,22 @@ class FaceDetectionApp:
 
 app = FaceDetectionApp()
 
-st.sidebar.header("Điều khiển")
-if st.sidebar.button("Bắt đầu"):
-    app.start_video_capture()
-if st.sidebar.button("Bật/Tắt ghi hình"):
-    app.toggle_recording()
-if st.sidebar.button("Chuyển camera"):
-    app.switch_camera()
-if st.sidebar.button("Phóng to"):
-    app.zoom_in()
-if st.sidebar.button("Thu nhỏ"):
-    app.zoom_out()
-if st.sidebar.button("Dừng"):
-    app.stop_video_capture()
+cameras = app.list_cameras()
+if not cameras:
+    st.error("Không tìm thấy camera nào.")
+else:
+    st.sidebar.header("Điều khiển")
+    app.current_camera = st.sidebar.selectbox("Chọn camera", cameras, index=0)
+
+    if st.sidebar.button("Bắt đầu"):
+        app.start_video_capture()
+    if st.sidebar.button("Bật/Tắt ghi hình"):
+        app.toggle_recording()
+    if st.sidebar.button("Chuyển camera"):
+        app.switch_camera()
+    if st.sidebar.button("Phóng to"):
+        app.zoom_in()
+    if st.sidebar.button("Thu nhỏ"):
+        app.zoom_out()
+    if st.sidebar.button("Dừng"):
+        app.stop_video_capture()
