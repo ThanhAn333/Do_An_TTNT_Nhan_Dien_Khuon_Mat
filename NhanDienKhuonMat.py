@@ -1,5 +1,4 @@
 import cv2
-import numpy as np
 import os
 import time
 import streamlit as st
@@ -13,12 +12,9 @@ class FaceDetectionApp:
         self.output_dir = 'detected_faces'
         self.snapshot_dir = 'snapshots'
         self.video_output_dir = 'recorded_videos'
-        if not os.path.exists(self.output_dir):
-            os.makedirs(self.output_dir)
-        if not os.path.exists(self.snapshot_dir):
-            os.makedirs(self.snapshot_dir)
-        if not os.path.exists(self.video_output_dir):
-            os.makedirs(self.video_output_dir)
+        os.makedirs(self.output_dir, exist_ok=True)
+        os.makedirs(self.snapshot_dir, exist_ok=True)
+        os.makedirs(self.video_output_dir, exist_ok=True)
 
         # Khởi tạo các biến
         self.current_camera = 0
@@ -26,7 +22,7 @@ class FaceDetectionApp:
         self.snapshot_counter = 0
         self.recording = False
         self.video_writer = None
-        self.cap = None  # Thêm biến cap để quản lý video capture
+        self.cap = None
         self.zoom_factor = 1.0
         self.zoom_step = 0.1
 
@@ -41,8 +37,6 @@ class FaceDetectionApp:
 
         st.success("Camera đã được mở thành công.")
         
-        # Stream dữ liệu video từ camera
-        st.header("Video Stream")
         while True:
             ret, frame = self.cap.read()
             if not ret:
@@ -77,7 +71,7 @@ class FaceDetectionApp:
                 self.face_counter += 1
 
             # Hiển thị số lượng khuôn mặt được phát hiện
-            st.text(f'So luong khuon mat phat hien: {len(face_rects)}')
+            st.text(f'Số lượng khuôn mặt phát hiện: {len(face_rects)}')
 
             # Hiển thị frame trong Streamlit
             st.image(frame, channels="BGR", use_column_width=True)
@@ -90,13 +84,8 @@ class FaceDetectionApp:
                     self.video_writer = cv2.VideoWriter(video_filename, fourcc, 20.0, (frame.shape[1], frame.shape[0]))
                 self.video_writer.write(frame)
 
-            # Kiểm tra nếu cửa sổ bị đóng
-            if cv2.getWindowProperty('Trinh phat hien khuon mat', cv2.WND_PROP_VISIBLE) < 1:
-                self.stop_video_capture()
-                break
+            time.sleep(0.03)  # Đợi 30ms trước khi xử lý frame tiếp theo
 
-            time.sleep(0.03)  # Đợi 30ms trước
-            
     def toggle_recording(self):
         # Ghi video khi nút được nhấn
         self.recording = not self.recording
@@ -126,14 +115,16 @@ class FaceDetectionApp:
 app = FaceDetectionApp()
 
 # Hiển thị các nút điều khiển trong Streamlit
-st.sidebar.header("Controls")
-if st.sidebar.button("Start"):
+st.sidebar.header("Điều khiển")
+if st.sidebar.button("Bắt đầu"):
     app.start_video_capture()
-if st.sidebar.button("Toggle Recording"):
+if st.sidebar.button("Bật/Tắt ghi hình"):
     app.toggle_recording()
-if st.sidebar.button("Switch Camera"):
+if st.sidebar.button("Chuyển camera"):
     app.switch_camera()
-if st.sidebar.button("Zoom In"):
+if st.sidebar.button("Phóng to"):
     app.zoom_in()
-if st.sidebar.button("Zoom Out"):
+if st.sidebar.button("Thu nhỏ"):
     app.zoom_out()
+if st.sidebar.button("Dừng"):
+    app.stop_video_capture()
