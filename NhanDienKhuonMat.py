@@ -80,6 +80,7 @@ class FaceDetectionApp:
             # Hiển thị số lượng khuôn mặt được phát hiện
             cv2.putText(frame, f'Số lượng khuôn mặt: {len(face_rects)}', (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
+
             # Hiển thị frame trong Streamlit
             frame_placeholder.image(frame, channels="BGR", use_column_width=True)
 
