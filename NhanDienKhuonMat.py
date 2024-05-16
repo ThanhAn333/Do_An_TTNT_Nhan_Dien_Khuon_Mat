@@ -37,7 +37,7 @@ class FaceDetectionApp:
 
         st.success("Camera đã được mở thành công.")
         
-        while True:
+        while self.cap.isOpened():
             ret, frame = self.cap.read()
             if not ret:
                 st.error('Không thể nhận dữ liệu từ camera.')
@@ -93,6 +93,9 @@ class FaceDetectionApp:
     def switch_camera(self):
         # Chuyển đổi giữa camera trước và sau
         self.current_camera = 1 - self.current_camera
+        if self.cap is not None:
+            self.cap.release()
+        self.start_video_capture()
 
     def zoom_in(self):
         # Phóng to hình ảnh
